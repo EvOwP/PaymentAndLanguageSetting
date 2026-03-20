@@ -1,0 +1,15 @@
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Refund extends Model
+{
+    protected $fillable = ['payment_id', 'amount', 'currency', 'reason', 'status', 'external_refund_id'];
+
+    public function payment()
+    {
+        return $this->belongsTo(Payment::class);
+    }
+}

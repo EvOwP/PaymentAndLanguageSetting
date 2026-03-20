@@ -1,0 +1,86 @@
+@extends('layouts.admin')
+
+@section('title', __('Add Gateway'))
+
+@section('content')
+    <div class="max-w-3xl mx-auto bg-white p-6 rounded-lg shadow-md border rtl:text-right" x-data="{ isManual: false, creds: [{ key: '', value: '' }] }">
+        <h1 class="text-2xl font-bold border-b pb-4 mb-6">{{ __('Add Payment Gateway') }}</h1>
+
+        <!-- Alpine.js for dynamic fields -->
+        <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+
+        <form action="{{ route('gateways.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+            @csrf
+            <div>
+                <label class="block text-sm font-medium text-gray-700">{{ __('Gateway Name') }} (e.g., Stripe, Bank
+                    Transfer)</label>
+                <input type="text" name="name" required
+                    class="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm p-2 border">
+                @error('name')
+                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700">{{ __('Gateway Logo') }}</label>
+                <input type="file" name="logo" accept="image/*"
+                    class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                @error('logo')
+                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div class="space-y-4">
+                <div class="flex items-center">
+                    <input type="checkbox" name="is_manual" id="is_manual" x-model="isManual"
+                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                    <label for="is_manual" class="ml-2 rtl:mr-2 block text-sm text-gray-900">
+                        {{ __('Is this a manual payment method? (Requires user to upload payment proof, e.g., Bank Transfer)') }}
+                    </label>
+                </div>
+
+                <div class="flex items-center">
+                    <input type="checkbox" name="status" id="status" checked
+                        class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
+                    <label for="status" class="ml-2 rtl:mr-2 block text-sm text-gray-900">
+                        {{ __('Active') }}
+                    </label>
+                </div>
+            </div>
+
+            <div x-show="isManual" class="mt-4 p-4 border rounded bg-gray-50 border-gray-200">
+                <label class="block text-sm font-medium text-gray-700">{{ __('Manual Payment Instructions') }}</label>
+                <p class="text-xs text-gray-500 mb-2">{{ __('e.g., Bank Account Details, steps to transfer, etc.') }}</p>
+                <textarea name="instructions" rows="4"
+                    class="block w-full border-gray-300 rounded-md p-2 border focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"></textarea>
+            </div>
+
+            <div class="mt-4 p-4 border rounded bg-gray-50 border-gray-200">
+                <h3 class="text-lg font-medium text-gray-900">{{ __('Dynamic API Credentials') }}</h3>
+                <p class="text-xs text-gray-500 mb-4">
+                    {{ __('Define dynamic API keys like STRIPE_PUBLIC, STRIPE_SECRET here.') }}</p>
+
+                <template x-for="(cred, index) in creds" :key="index">
+                    <div class="flex items-center space-x-2 space-y-2 rtl:space-x-reverse">
+                        <input type="text" x-bind:name="'cred_keys[' + index + ']'" x-model="cred.key"
+                            placeholder="{{ __('Key, e.g. PUBLIC_KEY') }}"
+                            class="mt-2 flex-1 border-gray-300 rounded-md p-2 border sm:text-sm">
+                        <input type="text" x-bind:name="cred.key" x-model="cred.value"
+                            placeholder="{{ __('Value') }}"
+                            class="flex-1 border-gray-300 rounded-md p-2 border sm:text-sm">
+                        <button type="button" @click="creds.splice(index, 1)"
+                            class="text-red-500 font-bold hover:text-red-700">✕</button>
+                    </div>
+                </template>
+                <button type="button" @click="creds.push({key: '', value: ''})"
+                    class="mt-3 text-sm text-indigo-600 hover:text-indigo-800">{{ __('+ Add Credential Field') }}</button>
+            </div>
+
+            <div class="pt-4 flex items-center space-x-4">
+                <button type="submit"
+                    class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700">{{ __('Save Gateway') }}</button>
+                <a href="{{ route('gateways.index') }}" class="text-gray-600 hover:text-gray-900">{{ __('Cancel') }}</a>
+            </div>
+        </form>
+    </div>
+@endsection
