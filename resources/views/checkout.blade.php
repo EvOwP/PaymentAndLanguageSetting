@@ -3,7 +3,11 @@
 @section('title', __('Checkout Test'))
 
 @section('content')
-    <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 rtl:text-right" x-data="{ selectedGateway: {{ $gateways->isNotEmpty() ? $gateways->first()->id : 'null' }} }">
+    <div class="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-8 rtl:text-right" x-data="{ 
+        selectedGateway: {{ $gateways->isNotEmpty() ? $gateways->first()->id : 'null' }},
+        gateways: {{ $gateways->mapWithKeys(fn($g) => [$g->id => ['fee' => (float)$g->fee, 'is_manual' => $g->is_manual]])->toJson() }},
+        baseAmount: 99.00
+    }">
         <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 
         <!-- Order Summary -->
@@ -18,9 +22,13 @@
                     <span>{{ __('Tax') }}</span>
                     <span>$0.00</span>
                 </div>
+                <div class="flex justify-between text-gray-600" x-show="gateways[selectedGateway] && gateways[selectedGateway].fee > 0" x-cloak>
+                    <span>{{ __('Gateway Fee') }}</span>
+                    <span x-text="'$' + gateways[selectedGateway].fee.toFixed(2)"></span>
+                </div>
                 <div class="flex justify-between text-lg font-bold border-t pt-2 text-gray-900 mt-4">
                     <span>{{ __('Total') }}</span>
-                    <span>$99.00</span>
+                    <span x-text="'$' + (baseAmount + (gateways[selectedGateway] ? gateways[selectedGateway].fee : 0)).toFixed(2)">$99.00</span>
                 </div>
             </div>
             <p class="mt-6 text-sm text-gray-500">
@@ -51,7 +59,12 @@
                                         <img src="{{ asset('storage/' . $gateway->logo) }}" alt="{{ $gateway->name }}"
                                             class="h-8 w-8 object-contain">
                                     @endif
-                                    <span class="block text-sm font-medium text-gray-900">{{ $gateway->name }}</span>
+                                    <div>
+                                        <span class="block text-sm font-medium text-gray-900">{{ $gateway->name }}</span>
+                                        @if ($gateway->fee > 0)
+                                            <span class="block text-xs text-gray-500">{{ __('+ $:fee fee', ['fee' => number_format($gateway->fee, 2)]) }}</span>
+                                        @endif
+                                    </div>
                                     @if ($gateway->is_manual)
                                         <span
                                             class="ml-auto rtl:mr-auto px-2 py-1 text-xs bg-yellow-100 text-yellow-800 rounded">{{ __('Manual') }}</span>

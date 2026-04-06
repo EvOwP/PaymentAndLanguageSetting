@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
+use Illuminate\Console\Scheduling\Schedule;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -15,6 +16,12 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \App\Http\Middleware\SetLanguage::class,
         ]);
+        $middleware->alias([
+            'admin' => \App\Http\Middleware\AdminMiddleware::class,
+        ]);
+    })
+    ->withSchedule(function (Schedule $schedule): void {
+         $schedule->command('payments:sync-status')->everyTenMinutes();
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

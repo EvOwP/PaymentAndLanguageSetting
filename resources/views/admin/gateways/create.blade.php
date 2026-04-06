@@ -22,6 +22,18 @@
             </div>
 
             <div>
+                <label class="block text-sm font-medium text-gray-700">{{ __('Gateway Fixed Fee') }}</label>
+                <div class="mt-1 relative rounded-md shadow-sm border border-gray-300 w-1/3">
+                    <input type="number" name="fee" min="0" step="0.01" value="{{ old('fee', 0) }}"
+                        class="block w-full rounded-md border-0 py-2 pl-3 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="0.00">
+                </div>
+                <p class="text-xs text-gray-400 mt-1">{{ __('Additional fixed fee charged to the customer for using this payment method.') }}</p>
+                @error('fee')
+                    <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                @enderror
+            </div>
+
+            <div>
                 <label class="block text-sm font-medium text-gray-700">{{ __('Gateway Logo') }}</label>
                 <input type="file" name="logo" accept="image/*"
                     class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
@@ -32,7 +44,7 @@
 
             <div class="space-y-4">
                 <div class="flex items-center">
-                    <input type="checkbox" name="is_manual" id="is_manual" x-model="isManual"
+                    <input type="checkbox" name="is_manual" id="is_manual" value="1" x-model="isManual"
                         class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
                     <label for="is_manual" class="ml-2 rtl:mr-2 block text-sm text-gray-900">
                         {{ __('Is this a manual payment method? (Requires user to upload payment proof, e.g., Bank Transfer)') }}
@@ -40,7 +52,7 @@
                 </div>
 
                 <div class="flex items-center">
-                    <input type="checkbox" name="status" id="status" checked
+                    <input type="checkbox" name="status" id="status" value="1" checked
                         class="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded">
                     <label for="status" class="ml-2 rtl:mr-2 block text-sm text-gray-900">
                         {{ __('Active') }}
@@ -56,24 +68,37 @@
             </div>
 
             <div class="mt-4 p-4 border rounded bg-gray-50 border-gray-200">
-                <h3 class="text-lg font-medium text-gray-900">{{ __('Dynamic API Credentials') }}</h3>
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-medium text-gray-900">{{ __('Dynamic API Credentials') }}</h3>
+                    <button type="button" @click="creds.push({ key: '', value: '' })"
+                        class="text-xs bg-indigo-50 text-indigo-700 px-2 py-1 rounded border border-indigo-200 hover:bg-indigo-100 transition-colors">
+                        {{ __('+ Add New Key') }}
+                    </button>
+                </div>
                 <p class="text-xs text-gray-500 mb-4">
                     {{ __('Define dynamic API keys like STRIPE_PUBLIC, STRIPE_SECRET here.') }}</p>
 
-                <template x-for="(cred, index) in creds" :key="index">
-                    <div class="flex items-center space-x-2 space-y-2 rtl:space-x-reverse">
-                        <input type="text" x-bind:name="'cred_keys[' + index + ']'" x-model="cred.key"
-                            placeholder="{{ __('Key, e.g. PUBLIC_KEY') }}"
-                            class="mt-2 flex-1 border-gray-300 rounded-md p-2 border sm:text-sm">
-                        <input type="text" x-bind:name="cred.key" x-model="cred.value"
-                            placeholder="{{ __('Value') }}"
-                            class="flex-1 border-gray-300 rounded-md p-2 border sm:text-sm">
-                        <button type="button" @click="creds.splice(index, 1)"
-                            class="text-red-500 font-bold hover:text-red-700">✕</button>
-                    </div>
-                </template>
-                <button type="button" @click="creds.push({key: '', value: ''})"
-                    class="mt-3 text-sm text-indigo-600 hover:text-indigo-800">{{ __('+ Add Credential Field') }}</button>
+                <div class="space-y-3">
+                    <template x-for="(cred, index) in creds" :key="index">
+                        <div class="flex items-center space-x-2 rtl:space-x-reverse animate-slide-down">
+                            <input type="text" x-bind:name="'cred_keys[' + index + ']'" x-model="cred.key"
+                                placeholder="{{ __('Key ID, e.g. API_KEY') }}"
+                                class="flex-1 border-gray-300 rounded-md p-2 border sm:text-sm bg-white font-mono text-xs">
+                            
+                            <input type="text" x-bind:name="cred.key" x-model="cred.value"
+                                placeholder="{{ __('Value') }}"
+                                class="flex-[2] border-gray-300 rounded-md p-2 border sm:text-sm bg-white">
+
+                            <button type="button" @click="creds.splice(index, 1)" 
+                                class="text-red-500 hover:bg-red-50 p-2 rounded transition-colors"
+                                title="{{ __('Remove') }}">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </template>
+                </div>
             </div>
 
             <div class="pt-4 flex items-center space-x-4">

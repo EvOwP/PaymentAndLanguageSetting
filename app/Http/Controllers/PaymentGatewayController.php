@@ -23,13 +23,14 @@ class PaymentGatewayController extends Controller
     {
         $request->validate([
             'name' => 'required|string',
+            'fee' => 'nullable|numeric|min:0',
             'is_manual' => 'boolean',
             'status' => 'boolean',
             'logo' => 'nullable|image',
             'instructions' => 'nullable|string',
         ]);
 
-        $credentials = collect($request->except(['_token', 'name', 'is_manual', 'status', 'logo', 'instructions', 'cred_keys']))
+        $credentials = collect($request->except(['_token', 'name', 'fee', 'is_manual', 'status', 'logo', 'instructions', 'cred_keys']))
             ->filter(fn($val, $key) => !str_starts_with($key, 'dummy_key_'))
             ->toArray();
 
@@ -40,6 +41,7 @@ class PaymentGatewayController extends Controller
 
         PaymentGateway::create([
             'name' => $request->name,
+            'fee' => $request->fee ?? 0,
             'is_manual' => $request->has('is_manual'),
             'status' => $request->has('status'),
             'logo' => $logoPath,
@@ -48,6 +50,11 @@ class PaymentGatewayController extends Controller
         ]);
 
         return redirect()->route('gateways.index')->with('success', 'Gateway added successfully.');
+    }
+
+    public function show(PaymentGateway $gateway)
+    {
+        return redirect()->route('gateways.edit', $gateway);
     }
 
     public function edit(PaymentGateway $gateway)
@@ -71,13 +78,14 @@ class PaymentGatewayController extends Controller
     {
         $request->validate([
             'name' => 'required|string',
+            'fee' => 'nullable|numeric|min:0',
             'is_manual' => 'boolean',
             'status' => 'boolean',
             'logo' => 'nullable|image',
             'instructions' => 'nullable|string',
         ]);
 
-        $credentials = collect($request->except(['_token', '_method', 'name', 'is_manual', 'status', 'logo', 'instructions', 'cred_keys']))
+        $credentials = collect($request->except(['_token', '_method', 'name', 'fee', 'is_manual', 'status', 'logo', 'instructions', 'cred_keys']))
             ->filter(fn($val, $key) => !str_starts_with($key, 'dummy_key_'))
             ->toArray();
 
@@ -89,6 +97,7 @@ class PaymentGatewayController extends Controller
 
         $gateway->update([
             'name' => $request->name,
+            'fee' => $request->fee ?? 0,
             'is_manual' => $request->has('is_manual'),
             'status' => $request->has('status'),
             'logo' => $logoPath,

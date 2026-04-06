@@ -19,10 +19,31 @@ abstract class GatewayDriver
      */
     abstract public function process(Payment $payment, array $data);
 
-    /**
-     * Handle incoming webhook raw request
-     */
     abstract public function handleWebhook(Request $request): array;
+
+    /**
+     * Finalize payment after redirect (e.g. Capture PayPal order)
+     */
+    public function finalize(Payment $payment, array $data): array
+    {
+        return ['status' => $payment->status];
+    }
+
+    /**
+     * Trigger a refund for a payment
+     */
+    public function refund(Payment $payment, $amount = null, $reason = null): array
+    {
+        throw new \Exception("Refund not implemented for this gateway.");
+    }
+
+    /**
+     * Check status of a payment from the gateway API (Fallback/Cron)
+     */
+    public function checkStatus(Payment $payment): array
+    {
+        return ['status' => $payment->status];
+    }
 
     /**
      * Helper to get single credential easily

@@ -50,6 +50,11 @@ class LanguageController extends Controller
         return redirect()->route('languages.index')->with('success', 'Language added successfully');
     }
 
+    public function show(Language $language)
+    {
+        return redirect()->route('languages.edit', $language);
+    }
+
     public function edit(Language $language)
     {
         return view('admin.languages.edit', compact('language'));

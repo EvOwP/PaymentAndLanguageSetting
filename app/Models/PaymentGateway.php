@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class PaymentGateway extends Model
 {
-    protected $fillable = ['name', 'is_manual', 'currency', 'status', 'credentials', 'instructions', 'logo'];
+    protected $fillable = ['name', 'is_manual', 'currency', 'fee', 'status', 'credentials', 'instructions', 'logo'];
 
     protected $casts = [
         'credentials' => 'array',

@@ -14,6 +14,7 @@ return new class extends Migration
         Schema::create('refunds', function (Blueprint $table) {
             $table->id();
             $table->foreignId('payment_id')->constrained()->onDelete('cascade');
+            $table->foreignId('payment_transaction_id')->nullable()->constrained('payment_transactions')->nullOnDelete();
             $table->decimal('amount', 15, 2);
             $table->string('currency', 10)->default('USD');
             $table->text('reason')->nullable();

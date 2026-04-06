@@ -18,24 +18,39 @@ class DatabaseSeeder extends Seeder
     {
         // User::factory(10)->create();
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
-        ]);
+        User::firstOrCreate(
+            ['email' => 'admin@example.com'],
+            [
+                'name' => 'Admin User',
+                'role' => 'admin',
+                'password' => bcrypt('password'),
+            ]
+        );
 
-        \App\Models\Setting::create([
-            'key' => 'show_language_options',
-            'value' => 'true'
-        ]);
+        User::firstOrCreate(
+            ['email' => 'user@example.com'],
+            [
+                'name' => 'Test User',
+                'role' => 'user',
+                'password' => bcrypt('password'),
+            ]
+        );
 
-        Language::create([
-            'code' => 'en',
-            'name' => 'English',
-            'is_rtl' => false,
-            'is_default' => true,
-            'is_active' => true,
-            'show_in_navbar' => true,
-        ]);
+        \App\Models\Setting::updateOrCreate(
+            ['key' => 'show_language_options'],
+            ['value' => 'true']
+        );
+
+        Language::updateOrCreate(
+            ['code' => 'en'],
+            [
+                'name' => 'English',
+                'is_rtl' => false,
+                'is_default' => true,
+                'is_active' => true,
+                'show_in_navbar' => true,
+            ]
+        );
 
         $gateways = [
             [
@@ -65,6 +80,7 @@ class DatabaseSeeder extends Seeder
                 'credentials' => [
                     'PAYPAL_CLIENT_ID' => 'client_id_xxxxxx',
                     'PAYPAL_CLIENT_SECRET' => 'secret_xxxxxx',
+                    'PAYPAL_WEBHOOK_ID' => 'webhook_id_xxxxxx',
                     'PAYPAL_MODE' => 'sandbox', // sandbox or live
                 ],
             ],
@@ -208,7 +224,7 @@ class DatabaseSeeder extends Seeder
         ];
 
         foreach ($gateways as $gateway) {
-            PaymentGateway::create($gateway);
+            PaymentGateway::updateOrCreate(['name' => $gateway['name']], $gateway);
         }
     }
 }

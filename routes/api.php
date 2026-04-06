@@ -10,4 +10,6 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 // Accept incoming webhooks from any specified gateway 
-Route::post('/webhooks/{gatewayName}', [WebhookController::class, 'handle'])->name('webhooks.handle');
+Route::post('/webhooks/{gatewayName}', [WebhookController::class, 'handle'])
+    ->middleware('throttle:60,1')
+    ->name('webhooks.handle');

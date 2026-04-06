@@ -16,7 +16,7 @@ return new class extends Migration
             $table->foreignId('payment_id')->constrained()->onDelete('cascade');
 
             $table->string('external_id')->nullable()->index(); // ID from gateway for this specific attempt
-            $table->string('status')->default('pending'); // authorized, captured, failed, etc.
+            $table->enum('status', ['pending','processing','paid','failed','cancelled','expired','refunded','partially_refunded'])->default('pending');
 
             // Financials of this attempt
             $table->decimal('amount', 15, 2);
@@ -26,6 +26,7 @@ return new class extends Migration
             $table->string('error_code')->nullable();
             $table->text('error_message')->nullable();
 
+            $table->unique(['external_id', 'payment_id']);
             $table->timestamps();
         });
     }

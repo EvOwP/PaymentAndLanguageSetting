@@ -10,10 +10,6 @@
                 <p class="text-[#64748b] text-sm font-medium">{{ __('Manage your universal payment infrastructure') }}</p>
                 <h1 class="text-3xl font-extrabold text-[#1e293b] tracking-tight">{{ __('Payment Gateways') }}</h1>
             </div>
-            <a href="{{ route('gateways.create') }}" class="btn-primary group">
-                <i class="fa-solid fa-plus mr-2 group-hover:rotate-90 transition-transform"></i>
-                {{ __('Add New Gateway') }}
-            </a>
         </div>
 
         <!-- Premium Table Card -->
@@ -37,6 +33,7 @@
                             <th class="px-6 py-4">{{ __('Provider') }}</th>
                             <th class="px-6 py-4">{{ __('Type') }}</th>
                             <th class="px-6 py-4">{{ __('Currency') }}</th>
+                            <th class="px-6 py-4">{{ __('Fee') }}</th>
                             <th class="px-6 py-4">{{ __('Status') }}</th>
                             <th class="px-6 py-4 text-right">{{ __('Control') }}</th>
                         </tr>
@@ -71,6 +68,11 @@
                                 <td class="px-6 py-4">
                                     <span class="font-mono font-bold text-[#1e293b] bg-[#f1f5f9] px-2 py-1 rounded text-xs">
                                         {{ $gateway->currency }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="font-bold text-[#1e293b] text-sm">
+                                        {{ $gateway->fee > 0 ? '$' . number_format($gateway->fee, 2) : __('None') }}
                                     </span>
                                 </td>
                                 <td class="px-6 py-4">

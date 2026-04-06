@@ -13,15 +13,18 @@ return new class extends Migration
     {
         Schema::create('payment_logs', function (Blueprint $table) {
             $table->id();
+            $table->string('event_id')->nullable();
             $table->foreignId('payment_id')->constrained()->onDelete('cascade');
-            $table->string('event_type'); // e.g., 'webhook_received', 'status_changed', 'api_request'
-            $table->json('payload')->nullable(); // The full HTTP body of the webhook
+            $table->string('event_type');
+            $table->json('payload')->nullable();
             $table->ipAddress('ip_address')->nullable();
+            $table->boolean('is_verified')->default(false);
+            $table->text('signature')->nullable();
+            $table->boolean('processed')->default(false);
+            $table->integer('retry_count')->default(0);
+            $table->timestamp('processed_at')->nullable();
 
-            // Webhook Verification
-            $table->boolean('is_verified')->default(false); // Verified against the gateway's secret hash
-            $table->text('signature')->nullable(); // Store the sent signature header (e.g., Stripe-Signature)
-
+            $table->unique(['event_id', 'payment_id']);
             $table->timestamps();
         });
     }

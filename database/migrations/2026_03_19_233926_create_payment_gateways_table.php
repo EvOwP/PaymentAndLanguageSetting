@@ -16,6 +16,7 @@ return new class extends Migration
             $table->string('name');
             $table->boolean('is_manual')->default(false);
             $table->string('currency', 10)->default('USD'); // e.g. USD, EUR, IDR, USDT
+            $table->decimal('fee', 15, 2)->default(0);
             $table->boolean('status')->default(true);
             $table->json('credentials')->nullable();
             $table->text('instructions')->nullable();

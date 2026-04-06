@@ -66,6 +66,14 @@
                     <div x-show="!sidebarOpen" class="w-6 h-px bg-[#e2e8f0] mx-auto mt-2"></div>
                 </div>
 
+                <a href="{{ route('payments.index') }}"
+                    class="sidebar-link flex items-center {{ request()->routeIs('payments.*') ? 'active' : '' }}"
+                    :class="sidebarOpen ? 'justify-start px-4' : 'justify-center px-0'">
+                    <i class="fa-solid fa-receipt text-xl w-6 text-center"></i>
+                    <span x-show="sidebarOpen" x-transition.opacity.duration.300ms
+                        class="ml-3 font-semibold whitespace-nowrap">{{ __('Transactions') }}</span>
+                </a>
+
                 <a href="{{ route('gateways.index') }}"
                     class="sidebar-link flex items-center {{ request()->routeIs('gateways.*') ? 'active' : '' }}"
                     :class="sidebarOpen ? 'justify-start px-4' : 'justify-center px-0'">
