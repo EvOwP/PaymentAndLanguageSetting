@@ -24,11 +24,23 @@ class PaymentController extends Controller
                 $finalData = $driver->finalize($payment, $request->all());
                 
                 if (isset($finalData['status']) && $finalData['status'] === 'paid') {
-                    // Use state machine transition — may return false if webhook already confirmed
-                    if ($payment->transitionTo('paid')) {
+                    // Use Reconciliation Service to ensure settlement data is filled even if webhook fails
+                    $reconciliationService = app(\App\Services\PaymentReconciliationService::class);
+                    $processed = $reconciliationService->reconcile(
+                        $payment,
+                        $finalData,
+                        $finalData['event_id'] ?? 'sync_' . uniqid(),
+                        $finalData['event_type'] ?? 'redirect_sync',
+                        $finalData['payload'] ?? $request->all(),
+                        $request->ip(),
+                        null, // no signature for redirect
+                        true  // consider it verified as it comes from a direct API call in finalize()
+                    );
+
+                    if ($processed) {
                         session()->now('success', __('Payment successful and confirmed!'));
                     } else {
-                        // Already paid via webhook — still show success to user
+                        // Already handled or transition failed
                         session()->now('success', __('Payment successful and confirmed!'));
                     }
                 } else {
@@ -112,7 +124,7 @@ class PaymentController extends Controller
                 'error' => $e->getMessage(),
                 'payment_uuid' => $payment->uuid
             ]);
-            return back()->with('error', 'Gateway communication error. Please try again.');
+            return back()->with('error', $e->getMessage());
         }
 
         // 4. Record initial Transaction (The attempt)
@@ -127,6 +139,11 @@ class PaymentController extends Controller
         // If gateway requires redirect (Stripe/PayPal), redirect now
         if (isset($result['type']) && $result['type'] === 'redirect') {
             return redirect()->away($result['url']);
+        }
+
+        // If gateway requires a specific view (Razorpay)
+        if (isset($result['type']) && $result['type'] === 'view') {
+            return view($result['view'], $result);
         }
 
         return redirect()->route('checkout')->with('success', 'Payment initiated successfully.');

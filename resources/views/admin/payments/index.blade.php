@@ -62,6 +62,8 @@
                                             'paid' => 'bg-emerald-50 text-emerald-700 border-emerald-100',
                                             'pending' => 'bg-amber-50 text-amber-700 border-amber-100',
                                             'failed' => 'bg-rose-50 text-rose-700 border-rose-100',
+                                            'refunded' => 'bg-slate-100 text-slate-700 border-slate-200',
+                                            'partially_refunded' => 'bg-indigo-50 text-indigo-700 border-indigo-100',
                                         ];
                                         $class = $statusClasses[$payment->status] ?? 'bg-slate-50 text-slate-700 border-slate-100';
                                     @endphp
@@ -69,10 +71,19 @@
                                         {{ __($payment->status) }}
                                     </span>
                                 </td>
-                                <td class="px-6 py-4 text-right">
-                                    <a href="{{ route('payments.show', $payment) }}" class="w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#f1f5f9] text-[#64748b] hover:bg-indigo-600 hover:text-white transition-all transform hover:scale-110">
-                                        <i class="fa-solid fa-eye"></i>
+                                <td class="px-6 py-4 text-right flex items-center justify-end gap-2">
+                                    <a href="{{ route('payments.show', $payment) }}" class="w-9 h-9 inline-flex items-center justify-center rounded-lg bg-[#f1f5f9] text-[#64748b] hover:bg-indigo-600 hover:text-white transition-all transform hover:scale-110" title="{{ __('View Details') }}">
+                                        <i class="fa-solid fa-eye text-xs"></i>
                                     </a>
+
+                                    @if(in_array($payment->status, [\App\Models\Payment::STATUS_PAID, \App\Models\Payment::STATUS_PARTIALLY_REFUNDED]))
+                                        <form action="{{ route('payments.refund', $payment) }}" method="POST" class="inline" onsubmit="return confirm('{{ __('Are you sure you want to refund this payment?') }}')">
+                                            @csrf
+                                            <button type="submit" class="w-9 h-9 inline-flex items-center justify-center rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-600 hover:text-white transition-all transform hover:scale-110" title="{{ __('Refund Payment') }}">
+                                                <i class="fa-solid fa-rotate-left text-xs"></i>
+                                            </button>
+                                        </form>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach

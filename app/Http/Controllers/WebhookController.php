@@ -52,186 +52,75 @@ class WebhookController extends Controller
         }
 
         $localUuid = $data['local_uuid'] ?? null;
-        $externalId = $data['external_id'] ?? null;
-        $status = $data['status'] ?? 'pending';
-        $payload = $data['payload'] ?? $request->all();
         $eventId = $data['event_id'] ?? $request->input('id');
         $eventType = $data['event_type'] ?? $request->input('type');
+        $payload = $data['payload'] ?? $request->all();
 
         Log::shareContext(['event_id' => $eventId, 'event_type' => $eventType, 'payment_uuid' => $localUuid]);
 
-        $processed = false;
+        // Find the payment
+        $payment = Payment::where('uuid', $localUuid)->first();
+        
+        if (!$payment) {
+            Log::warning("Payment reconciliation failed: UUID not found in database", [
+                'uuid' => $localUuid,
+            ]);
+            return response()->json(['error' => 'Payment not found'], 404);
+        }
 
-        // 1. Wrap everything in a Database Transaction with Row-Level Locking
-        \Illuminate\Support\Facades\DB::transaction(function () use ($localUuid, $data, $status, $payload, $eventId, $eventType, $externalId, $request, &$processed) {
-            
-            Log::debug("Starting database transaction for payment update");
+        Log::shareContext(['internal_payment_id' => $payment->id]);
 
-            // Re-find within transaction with FOR UPDATE to prevent race conditions
-            $payment = Payment::where('uuid', $localUuid)->lockForUpdate()->first();
-            
-            if (!$payment) {
-                Log::warning("Payment reconciliation failed: UUID not found in database", [
-                    'uuid' => $localUuid,
-                ]);
-                return; // Return from transaction closure
-            }
-
-            Log::shareContext(['internal_payment_id' => $payment->id]);
-
-            // 2. Idempotency Check (Scoped to payment and protected by row lock)
-            if ($eventId && PaymentLog::where('event_id', $eventId)->where('payment_id', $payment->id)->exists()) {
-                Log::info("Duplicate event detected inside locked transaction: Skipping process");
-                $processed = true; // Still counts as handled successfully to gateway
-                return; // Exit transaction closure smoothly
-            }
-
-            // Logic Exploit Protection: Verify captured amount matches expected DB amount
-            if ($status === Payment::STATUS_PAID && isset($data['captured_amount'])) {
-                if ((float)$data['captured_amount'] < (float)$payment->amount) {
-                    Log::error("SECURITY ALERT: Stripe captured amount mismatch!", [
-                        'payment_uuid' => $payment->uuid,
-                        'expected' => $payment->amount,
-                        'captured' => $data['captured_amount']
-                    ]);
-                    
-                    // Force fail the transaction and record this high-risk event
-                    $status = Payment::STATUS_FAILED;
-                    $payload['SECURITY_WARNING'] = 'Captured amount was less than expected amount.';
-                }
-            }
-
-            // Calculate fees correctly — now uses REAL Stripe fee from BalanceTransaction
-            $fee = $data['fee'] ?? $payment->fee ?? 0;
-            $netAmount = $data['net_amount'] ?? ($payment->amount - $fee);
-
-            // Update Metadata always, even if status transition fails
-            $updateData = [
-                'webhook_payload' => $payload,
-                'fee' => $fee,
-                'net_amount' => $netAmount,
-                'fee_bearer' => $data['fee_bearer'] ?? $payment->fee_bearer ?? 'customer',
-                'risk_score' => $data['risk_score'] ?? $payment->risk_score,
-                'is_fraud' => $data['is_fraud'] ?? $payment->is_fraud,
-                'customer_email' => $data['customer_email'] ?? $payment->customer_email,
-            ];
-
-            // Multi-currency: Update if Stripe provides customer's local currency (presentment)
-            if (!empty($data['original_currency'])) {
-                $updateData['original_currency'] = $data['original_currency'];
-                $updateData['exchange_rate'] = $data['exchange_rate'] ?? $payment->exchange_rate ?? 1.0;
-            }
-            if (!empty($data['original_amount'])) {
-                $updateData['original_amount'] = $data['original_amount'];
-            }
-
-            // Settlement tracking: mark as settled when paid (funds captured by Stripe)
-            if ($status === Payment::STATUS_PAID) {
-                $updateData['settlement_status'] = 'settled';
-                $updateData['settled_at'] = now();
-                $updateData['settlement_reference'] = $data['settlement_reference'] ?? $payment->settlement_reference;
-            }
-
-            // Auto-generate notes from webhook lifecycle events
-            $existingNotes = $payment->notes ?? '';
-            $timestamp = now()->format('Y-m-d H:i:s');
-            $newNote = "[{$timestamp}] Webhook: {$eventType}";
-            if ($status === Payment::STATUS_PAID) {
-                $newNote .= " — Payment confirmed by gateway.";
-            } elseif ($status === Payment::STATUS_REFUNDED) {
-                $newNote .= " — Full refund processed.";
-            } elseif ($status === Payment::STATUS_PARTIALLY_REFUNDED) {
-                $refundAmt = $data['refund_amount'] ?? 'unknown';
-                $newNote .= " — Partial refund of {$refundAmt} {$payment->currency}.";
-            } elseif ($status === Payment::STATUS_FAILED) {
-                $newNote .= " — Payment failed.";
-            }
-            $updateData['notes'] = trim($existingNotes . "\n" . $newNote);
-
-            // 4. Use state machine transition logic
-            $transitioned = $payment->transitionTo($status, $updateData);
-
-            // If state machine blocked (e.g. paid→paid), still save enrichment data
-            // This handles the case where checkout.session.completed arrives AFTER
-            // payment_intent.succeeded — the email and other metadata must still be persisted
-            if (!$transitioned) {
-                $enrichment = array_filter([
-                    'customer_email' => $data['customer_email'] ?? null,
-                    'risk_score' => $data['risk_score'] ?? null,
-                    'settlement_reference' => $data['settlement_reference'] ?? null,
-                    'original_currency' => $data['original_currency'] ?? null,
-                    'original_amount' => $data['original_amount'] ?? null,
-                    'exchange_rate' => $data['exchange_rate'] ?? null,
-                    'fee' => $data['fee'] ?: null,
-                    'net_amount' => $data['net_amount'] ?? null,
-                ], fn($v) => $v !== null);
-
-                if (!empty($enrichment)) {
-                    $payment->update($enrichment);
-                    Log::info("Enrichment data saved despite blocked transition", array_keys($enrichment));
-                }
-            }
-
-            $transaction = PaymentTransaction::updateOrCreate(
-                [
-                    'payment_id' => $payment->id,
-                    'external_id' => $externalId,
-                ],
-                [
-                    'status' => $status,
-                    'amount' => $payment->amount,
-                    'currency' => $payment->currency,
-                    'payload' => $payload
-                ]
-            );
-
-            if ($status === Payment::STATUS_REFUNDED || $status === Payment::STATUS_PARTIALLY_REFUNDED) {
-                // Use the individual Stripe refund ID (re_xxx) — NOT the charge ID (ch_xxx)
-                // Fallback uses event ID (unique per webhook) to avoid dedup issues
-                $refundId = $data['refund_id'] ?? 'evt_refund_' . $eventId;
-                $individualAmount = $data['last_refund_amount'] ?? $data['refund_amount'] ?? $payment->amount;
-
-                \App\Models\Refund::firstOrCreate(
-                    [
-                        'external_refund_id' => $refundId,
-                    ],
-                    [
-                        'payment_id' => $payment->id,
-                        'payment_transaction_id' => $transaction->id,
-                        'amount' => $individualAmount,
-                        'currency' => $payment->currency,
-                        'status' => 'completed',
-                        'reason' => $data['refund_reason'] ?? 'Webhook triggered refund',
-                    ]
-                );
-            }
-
-            PaymentLog::create([
+        // 3. Create initial PaymentLog entry (unprocessed) to support retries if processing fails
+        $paymentLog = PaymentLog::firstOrCreate(
+            [
                 'event_id' => $eventId,
                 'payment_id' => $payment->id,
-                'event_type' => $eventType ?? 'webhook_' . $status,
+            ],
+            [
+                'event_type' => $eventType ?? 'webhook_received',
                 'payload' => $payload,
                 'ip_address' => $request->ip(),
                 'is_verified' => $data['is_verified'] ?? false,
                 'signature' => $data['signature'] ?? null,
-                'processed' => true,
-                'processed_at' => now(),
+                'processed' => false,
                 'retry_count' => 0,
-            ]);
+            ]
+        );
 
-            Log::info("Payment reconciled effectively", [
-                'old_status' => $payment->getOriginal('status'),
-                'new_status' => $status
-            ]);
-            
-            $processed = true;
-        });
-
-        if (!$processed) {
-            return response()->json(['error' => 'Payment not found'], 404);
+        // If already processed, return success
+        if ($paymentLog->processed) {
+            Log::info("Event already processed: Skipping");
+            return response()->json(['message' => 'Webhook already handled'], 200);
         }
 
-        Log::info("Webhook handled successfully - Response sent to gateway");
-        return response()->json(['message' => 'Webhook Handled successfully'], 200);
+        // 4. Use Reconciliation Service to process the update
+        try {
+            $reconciliationService = app(\App\Services\PaymentReconciliationService::class);
+            $processed = $reconciliationService->reconcile(
+                $payment,
+                $data,
+                $eventId,
+                $eventType,
+                $payload,
+                $request->ip(),
+                $data['signature'] ?? null,
+                $data['is_verified'] ?? false
+            );
+
+            if ($processed) {
+                Log::info("Webhook handled successfully - Response sent to gateway");
+                return response()->json(['message' => 'Webhook Handled successfully'], 200);
+            }
+        } catch (\Exception $e) {
+            Log::error("Reconciliation failed", [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            // We return 500 so the gateway might retry, 
+            // but we also have it in our payment_logs for manual/auto retry.
+            return response()->json(['error' => 'Processing failed'], 500);
+        }
+
+        return response()->json(['error' => 'Processing failed'], 500);
     }
 }

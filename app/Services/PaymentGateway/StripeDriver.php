@@ -89,7 +89,16 @@ class StripeDriver extends GatewayDriver
                     'payment_uuid' => $payment->uuid,
                     'session_id' => $sessionId
                 ]);
-                return ['status' => 'paid'];
+                
+                return [
+                    'status' => 'paid',
+                    'external_id' => $session->payment_intent ?? $session->id,
+                    'captured_amount' => $session->amount_total / 100,
+                    'customer_email' => $session->customer_details->email ?? null,
+                    'event_id' => 'sync_' . $sessionId,
+                    'event_type' => 'checkout.session.completed',
+                    'payload' => $session->toArray()
+                ];
             }
 
             Log::debug("Stripe finalize: Session not yet paid", [

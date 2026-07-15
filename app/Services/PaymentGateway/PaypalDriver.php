@@ -76,8 +76,7 @@ class PaypalDriver extends GatewayDriver
         }
 
         $status = 'pending';
-        $externalId = null;
-
+        
         // Handle order approved - we must CAPTURE it to get money
         if ($event === 'CHECKOUT.ORDER.APPROVED') {
             $orderId = $payload['resource']['id'] ?? null;
@@ -109,13 +108,33 @@ class PaypalDriver extends GatewayDriver
                     $resource['purchase_units'][0]['reference_id'] ?? 
                     ($payload['resource']['parent_payment'] ?? null);
 
+        // Extract amount details
+        $capturedAmount = $resource['amount']['value'] ?? 0;
+        $currency = $resource['amount']['currency_code'] ?? null;
+
+        // Extract fee and net amount
+        $fee = $resource['seller_receivable_breakdown']['paypal_fee']['value'] ?? 0;
+        $netAmount = $resource['seller_receivable_breakdown']['net_amount']['value'] ?? ($capturedAmount - $fee);
+
+        // Extract customer email (deep lookup)
+        $customerEmail = $payload['resource']['payer']['email_address'] ?? null;
+
         return [
             'external_id' => $externalId,
             'local_uuid' => $localUuid,
             'status' => $status,
-            'fee' => $resource['seller_receivable_breakdown']['paypal_fee']['value'] ?? 0,
+            'captured_amount' => $capturedAmount,
+            'fee' => $fee,
+            'net_amount' => $netAmount,
+            'original_currency' => $currency,
+            'original_amount' => $capturedAmount,
+            'exchange_rate' => 1.0, // PayPal usually handles conversion before webhook or provides it elsewhere
+            'customer_email' => $customerEmail,
             'event_id' => $payload['id'] ?? null,
             'event_type' => $event,
+            'risk_score' => null, // PayPal risk data is often in different API calls
+            'is_fraud' => false,
+            'settlement_reference' => $externalId,
             'payload' => $payload,
             'is_verified' => $isVerified,
             'signature' => $request->header('PAYPAL-TRANSMISSION-SIG')
@@ -154,7 +173,8 @@ class PaypalDriver extends GatewayDriver
         }
 
         $captureData = $response->json();
-        $capture = $captureData['purchase_units'][0]['payments']['captures'][0] ?? [];
+        $purchaseUnit = $captureData['purchase_units'][0] ?? [];
+        $capture = $purchaseUnit['payments']['captures'][0] ?? [];
         
         $status = 'pending';
         $resStatus = $capture['status'] ?? '';
@@ -164,11 +184,21 @@ class PaypalDriver extends GatewayDriver
             $status = 'failed';
         }
 
+        $capturedAmount = $capture['amount']['value'] ?? 0;
+        $fee = $capture['seller_receivable_breakdown']['paypal_fee']['value'] ?? 0;
+        $netAmount = $capture['seller_receivable_breakdown']['net_amount']['value'] ?? ($capturedAmount - $fee);
+
         return [
             'external_id' => $capture['id'] ?? $orderId,
-            'local_uuid' => $capture['custom_id'] ?? $captureData['purchase_units'][0]['reference_id'] ?? null,
+            'local_uuid' => $capture['custom_id'] ?? $purchaseUnit['reference_id'] ?? null,
             'status' => $status,
-            'fee' => $capture['seller_receivable_breakdown']['paypal_fee']['value'] ?? 0,
+            'captured_amount' => $capturedAmount,
+            'fee' => $fee,
+            'net_amount' => $netAmount,
+            'original_currency' => $capture['amount']['currency_code'] ?? null,
+            'original_amount' => $capturedAmount,
+            'exchange_rate' => 1.0,
+            'customer_email' => $captureData['payer']['email_address'] ?? null,
             'event_id' => $payload['id'],
             'event_type' => 'INTERNAL.CAPTURE.' . $resStatus,
             'payload' => array_merge($payload, ['capture_result' => $captureData])

@@ -92,6 +92,7 @@ class DatabaseSeeder extends Seeder
                 'credentials' => [
                     'RAZORPAY_KEY_ID' => 'rzp_test_xxxxxx',
                     'RAZORPAY_KEY_SECRET' => 'secret_xxxxxx',
+                    'RAZORPAY_WEBHOOK_SECRET' => 'whsec_xxxxxx',
                 ],
             ],
             [
